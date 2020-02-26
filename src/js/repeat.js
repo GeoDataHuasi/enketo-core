@@ -16,7 +16,7 @@ import events from './event';
 import { t } from 'enketo/translator';
 import dialog from 'enketo/dialog';
 import { getSiblingElements, getChildren, getSiblingElementsAndSelf } from './dom-utils';
-import { isDynamic } from './utils';
+import { isStaticExternalItemset } from './itemset';
 import config from 'enketo/config';
 const disableFirstRepeatRemoval = config.repeatOrdinals === true;
 
@@ -377,12 +377,12 @@ export default {
             const template = datalist.querySelector( '.itemset-template[data-items-path]' );
             const expr = template ? template.dataset.itemsPath : null;
 
-            if ( isDynamic( expr ) ) {
+            if ( !isStaticExternalItemset( expr ) ) {
                 this.fixDatalistId( datalist );
             } else {
                 const id = datalist.id;
                 const inputs = getSiblingElements( datalist, 'input[list]' );
-                const input = inputs.length ? inputs[ 0 ] : null
+                const input = inputs.length ? inputs[ 0 ] : null;
                 if ( input ) {
                     // For very long static datalists, a huge performance improvement can be achieved, by using the 
                     // same datalist for all repeat instances that use it.

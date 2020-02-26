@@ -5,9 +5,34 @@
  */
 
 import $ from 'jquery';
-import { parseFunctionFromExpression } from './utils';
+import { parseFunctionFromExpression, dataUriToBlobSync } from './utils';
 import dialog from 'enketo/dialog';
 import { t } from 'enketo/translator';
+
+/**
+ * This function tries to determine whether an XPath expression for a nodeset from an external instance is static.
+ * Hopefully in the future it can do this properly, but for now it considers any expression
+ * with a non-numeric (position) predicate to be dynamic.
+ * This function relies on external instances to be static.
+ * 
+ * @static
+ * @param {string} expr - XPath expression to analyze
+ * @return {boolean} Whether expression contains a predicate
+ */
+function isStaticExternalItemset( expr ) {
+    const refersToInstance = /^\s*instance\(.+\)/.test( expr );
+    if ( !refersToInstance ) {
+        return false;
+    }
+    const containsPredicate = /\[.+\]/.test( expr );
+    if ( !containsPredicate ) {
+        return true;
+    }
+    const containsNumericPredicate = /\[\d+\]/.test( expr )
+    return containsNumericPredicate;
+}
+
+export { isStaticExternalItemset };
 
 export default {
     /**
@@ -207,10 +232,12 @@ export default {
                     }
 
                 } );
-                fragmentsCache[ cacheKey ] = {
-                    optionsFragment: optionsFragment.cloneNode( true ),
-                    optionsTranslationsFragment: optionsTranslationsFragment.cloneNode( true )
-                };
+                if ( isStaticExternalItemset( itemsXpath ) ) {
+                    fragmentsCache[ cacheKey ] = {
+                        optionsFragment: optionsFragment.cloneNode( true ),
+                        optionsTranslationsFragment: optionsTranslationsFragment.cloneNode( true )
+                    };
+                }
             }
 
             template.parentNode.appendChild( optionsFragment );
@@ -224,6 +251,7 @@ export default {
              * include (an) item(s) with this/se value(s), this will clear/update the model and
              * this will trigger a dataupdate event. This may call this update function again.
              */
+            /*
             let currentValue = that.form.model.node( context, index ).getVal();
             if ( currentValue !== '' ) {
                 if ( $input.hasClass( 'rank' ) ) {
@@ -232,6 +260,7 @@ export default {
                 that.form.input.setVal( $input[ 0 ], currentValue, null );
                 $input.trigger( 'change' );
             }
+            */
 
             if ( $list.length > 0 || $input.hasClass( 'rank' ) ) {
                 $input.trigger( 'changeoption' );
@@ -255,8 +284,8 @@ export default {
      * @return {Array<Element>} found nodes
      */
     getNodesFromItem( expr, context, single ) {
-        if ( !expr || !context ) {
-            throw new Error( 'Error: could not query instance item, no expression and/or context provided' );
+        if ( !expr ) {
+            throw new Error( 'Error: could not query instance item, no expression provided' );
         }
         const type = single ? 9 : 7;
         const evaluateFnName = typeof this.form.model.xml.evaluate !== 'undefined' ? 'evaluate' : 'jsEvaluate';
