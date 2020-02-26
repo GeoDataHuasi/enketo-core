@@ -5,7 +5,7 @@
  */
 
 import $ from 'jquery';
-import { parseFunctionFromExpression, dataUriToBlobSync } from './utils';
+import { parseFunctionFromExpression } from './utils';
 import dialog from 'enketo/dialog';
 import { t } from 'enketo/translator';
 
@@ -131,7 +131,7 @@ export default {
             // } else {
             //console.log( 'no cache for', itemsXpath );
             const safeToTryNative = true;
-            // Caching has no effect here. This is a very quick query (natively).
+            // Caching has no advantage here. This is a very quick query (natively).
             $instanceItems = $( that.form.model.evaluate( itemsXpath, 'nodes', context, index, safeToTryNative ) );
             //if ( !insideRepeat ) {
 
@@ -251,7 +251,7 @@ export default {
              * include (an) item(s) with this/se value(s), this will clear/update the model and
              * this will trigger a dataupdate event. This may call this update function again.
              */
-            /*
+
             let currentValue = that.form.model.node( context, index ).getVal();
             if ( currentValue !== '' ) {
                 if ( $input.hasClass( 'rank' ) ) {
@@ -260,7 +260,7 @@ export default {
                 that.form.input.setVal( $input[ 0 ], currentValue, null );
                 $input.trigger( 'change' );
             }
-            */
+
 
             if ( $list.length > 0 || $input.hasClass( 'rank' ) ) {
                 $input.trigger( 'changeoption' );
