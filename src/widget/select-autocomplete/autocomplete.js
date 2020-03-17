@@ -32,8 +32,7 @@ class AutocompleteSelectpicker extends Widget {
     _init() {
         const listId = this.element.getAttribute( 'list' );
 
-
-        if ( this.element.classList.contains( 'static' ) ) {
+        if ( getSiblingElements( this.element, 'datalist' ).length === 0 ) {
             const infos = getSiblingElements( this.element.closest( '.or-repeat' ), '.or-repeat-info' );
             this.options = infos.length ? [ ...infos[ 0 ].querySelectorAll( `datalist#${listId} > option` ) ] : [];
         } else {

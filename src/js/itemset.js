@@ -7,6 +7,7 @@
 import $ from 'jquery';
 import { parseFunctionFromExpression } from './utils';
 import dialog from 'enketo/dialog';
+import events from './event';
 import { t } from 'enketo/translator';
 
 /**
@@ -69,6 +70,7 @@ export default {
             let $instanceItems;
             const template = this;
             const $template = $( this );
+            const shared = template.parentElement.parentElement.matches( '.or-repeat-info' );
             const inputAttributes = {};
 
             // Nodes are in document order, so we discard any nodes in questions/groups that have a disabled parent
@@ -91,8 +93,13 @@ export default {
             } else if ( $list.prop( 'nodeName' ).toLowerCase() === 'select' ) {
                 $input = $list;
             } else if ( $list.prop( 'nodeName' ).toLowerCase() === 'datalist' ) {
-                $input = $list.siblings( 'input:not(.widget)' );
+                if ( shared ) {
+                    $input = $( that.form.view.html.querySelectorAll( `input[name="${$list.attr('data-name')}"]` ) );
+                } else {
+                    $input = $list.siblings( 'input:not(.widget)' );
+                }
             }
+
             const $labels = $template.closest( 'label, select, datalist' ).siblings( '.itemset-labels' );
             const itemsXpath = $template.attr( 'data-items-path' );
             let labelType = $labels.attr( 'data-label-type' );
@@ -115,16 +122,12 @@ export default {
              * the nodeset retrieves, Enketo's aproach works well.
              */
             // Shared datalists are under .or-repeat-info. Context is not relevant as these are static lists (without relative nodes).
-            const context = template.parentElement.parentElement.matches( '.or-repeat-info' ) ? null : that.form.input.getName( $input[ 0 ] );
-
+            const context = that.form.input.getName( $input[ 0 ] );
             /*
-             * Determining the index is expensive, so we only do this when the itemset is inside a cloned repeat.
+             * Determining the index is expensive, so we only do this when the itemset is inside a cloned repeat and not shared.
              * It can be safely set to 0 for other branches.
              */
-            //const insideRepeat = ( clonedRepeatsPresent && $input.parentsUntil( '.or', '.or-repeat' ).length > 0 ) ? true : false;
-            const insideRepeatClone = ( clonedRepeatsPresent && $input.parentsUntil( '.or', '.or-repeat.clone' ).length > 0 ) ? true : false;
-            const index = ( insideRepeatClone ) ? that.form.input.getIndex( $input[ 0 ] ) : 0;
-
+            const index = ( !shared && clonedRepeatsPresent && $input.parentsUntil( '.or', '.or-repeat.clone' ).length > 0 ) ? that.form.input.getIndex( $input[ 0 ] ) : 0;
             //if ( typeof itemsCache[ itemsXpath ] !== 'undefined' ) {
             //console.log( 'getting items from cache', itemsXpath );
             // $instanceItems = itemsCache[ itemsXpath ];
@@ -251,16 +254,19 @@ export default {
              * include (an) item(s) with this/se value(s), this will clear/update the model and
              * this will trigger a dataupdate event. This may call this update function again.
              */
-
+            // It is not necessary to do this for static itemsets because setAllVals takes care of this.
+            /*
             let currentValue = that.form.model.node( context, index ).getVal();
+            console.log( 'current value', currentValue );
             if ( currentValue !== '' ) {
+
                 if ( $input.hasClass( 'rank' ) ) {
                     currentValue = '';
                 }
-                that.form.input.setVal( $input[ 0 ], currentValue, null );
-                $input.trigger( 'change' );
+                // NOTE: this used to be a change event, and not an inputUpdate event. Not sure if change will create regressions.
+                that.form.input.setVal( $input[ 0 ], currentValue, events.Change() );
             }
-
+            */
 
             if ( $list.length > 0 || $input.hasClass( 'rank' ) ) {
                 $input.trigger( 'changeoption' );

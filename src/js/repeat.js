@@ -394,6 +394,8 @@ export default {
                         // It will survive removal of all repeat instances.
                         const parent = datalist.parentElement;
                         const detachedList = parent.removeChild( datalist );
+                        const name = input.name;
+                        detachedList.setAttribute( 'data-name', name );
                         repeatInfo.appendChild( detachedList );
                         const translations = parent.querySelector( '.or-option-translations' );
                         const labels = parent.querySelector( '.itemset-labels' );
@@ -402,7 +404,7 @@ export default {
                         repeatInfo.appendChild( detachedTranslations );
                         repeatInfo.appendChild( detachedLabels );
                         this.staticLists.push( id );
-                        input.classList.add( 'static' );
+                        //input.classList.add( 'shared' );
                     }
                 }
             }
