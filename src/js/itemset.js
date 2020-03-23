@@ -14,13 +14,13 @@ import { t } from 'enketo/translator';
  * This function tries to determine whether an XPath expression for a nodeset from an external instance is static.
  * Hopefully in the future it can do this properly, but for now it considers any expression
  * with a non-numeric (position) predicate to be dynamic.
- * This function relies on external instances to be static.
+ * This function relies on external instances themselves to be static.
  * 
  * @static
  * @param {string} expr - XPath expression to analyze
  * @return {boolean} Whether expression contains a predicate
  */
-function isStaticExternalItemset( expr ) {
+function isStaticItemsetFromSecondaryInstance( expr ) {
     const refersToInstance = /^\s*instance\(.+\)/.test( expr );
     if ( !refersToInstance ) {
         return false;
@@ -33,7 +33,7 @@ function isStaticExternalItemset( expr ) {
     return containsNumericPredicate;
 }
 
-export { isStaticExternalItemset };
+export { isStaticItemsetFromSecondaryInstance };
 
 export default {
     /**
@@ -235,7 +235,7 @@ export default {
                     }
 
                 } );
-                if ( isStaticExternalItemset( itemsXpath ) ) {
+                if ( isStaticItemsetFromSecondaryInstance( itemsXpath ) ) {
                     fragmentsCache[ cacheKey ] = {
                         optionsFragment: optionsFragment.cloneNode( true ),
                         optionsTranslationsFragment: optionsTranslationsFragment.cloneNode( true )

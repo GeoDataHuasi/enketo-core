@@ -16,7 +16,7 @@ import events from './event';
 import { t } from 'enketo/translator';
 import dialog from 'enketo/dialog';
 import { getSiblingElements, getChildren, getSiblingElementsAndSelf } from './dom-utils';
-import { isStaticExternalItemset } from './itemset';
+import { isStaticItemsetFromSecondaryInstance } from './itemset';
 import config from 'enketo/config';
 const disableFirstRepeatRemoval = config.repeatOrdinals === true;
 
@@ -377,7 +377,7 @@ export default {
             const template = datalist.querySelector( '.itemset-template[data-items-path]' );
             const expr = template ? template.dataset.itemsPath : null;
 
-            if ( !isStaticExternalItemset( expr ) ) {
+            if ( !isStaticItemsetFromSecondaryInstance( expr ) ) {
                 this.fixDatalistId( datalist );
             } else {
                 const id = datalist.id;
