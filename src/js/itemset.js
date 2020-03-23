@@ -157,7 +157,7 @@ export default {
              * Remove current items before rebuilding a new itemset from scratch.
              */
             // the current <option> and <input> elements
-            const $question = $template.closest( '.question' );
+            const $question = $template.closest( '.question, .or-repeat-info' );
             $question.find( templateNodeName ).not( $template ).remove();
             // labels for current <option> elements
             const optionsTranslations = $question.find( '.or-option-translations' ).empty()[ 0 ];
