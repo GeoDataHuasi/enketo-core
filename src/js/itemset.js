@@ -29,7 +29,7 @@ function isStaticExternalItemset( expr ) {
     if ( !containsPredicate ) {
         return true;
     }
-    const containsNumericPredicate = /\[\d+\]/.test( expr )
+    const containsNumericPredicate = /\[\d+\]/.test( expr );
     return containsNumericPredicate;
 }
 
@@ -254,19 +254,16 @@ export default {
              * include (an) item(s) with this/se value(s), this will clear/update the model and
              * this will trigger a dataupdate event. This may call this update function again.
              */
-            // It is not necessary to do this for static itemsets because setAllVals takes care of this.
-            /*
+            // It is not necessary to do this for default values in static itemsets because setAllVals takes care of this.
+
             let currentValue = that.form.model.node( context, index ).getVal();
-            console.log( 'current value', currentValue );
             if ( currentValue !== '' ) {
 
                 if ( $input.hasClass( 'rank' ) ) {
                     currentValue = '';
                 }
-                // NOTE: this used to be a change event, and not an inputUpdate event. Not sure if change will create regressions.
                 that.form.input.setVal( $input[ 0 ], currentValue, events.Change() );
             }
-            */
 
             if ( $list.length > 0 || $input.hasClass( 'rank' ) ) {
                 $input.trigger( 'changeoption' );
