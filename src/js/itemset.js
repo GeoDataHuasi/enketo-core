@@ -7,6 +7,7 @@
 import $ from 'jquery';
 import { parseFunctionFromExpression } from './utils';
 import dialog from 'enketo/dialog';
+import { closestAncestorUntil, getChildren, getSiblingElements, elementDataStore as data } from './dom-utils';
 import events from './event';
 import { t } from 'enketo/translator';
 
@@ -42,7 +43,7 @@ export default {
     update( updated = {} ) {
         const that = this;
         const fragmentsCache = {};
-        let $nodes;
+        let nodes;
 
         if ( !this.form ) {
             throw new Error( 'Output module not correctly instantiated with form property.' );
@@ -50,58 +51,59 @@ export default {
 
         if ( updated.relevantPath ) {
             // Questions that are descendants of a group:
-            $nodes = this.form.getRelatedNodes( 'data-items-path', `[name^="${updated.relevantPath}/"]` )
+            nodes = this.form.getRelatedNodes( 'data-items-path', `[name^="${updated.relevantPath}/"]` )
                 .add( this.form.getRelatedNodes( 'data-items-path', `[name^="${updated.relevantPath}/"] ~ datalist > .itemset-template` ) )
                 // Individual questions (autocomplete)
                 .add( this.form.getRelatedNodes( 'data-items-path', `[name="${updated.relevantPath}"]` ) )
                 .add( this.form.getRelatedNodes( 'data-items-path', `[name="${updated.relevantPath}"] ~ datalist > .itemset-template` ) )
                 // Individual radiobutton questions with an itemset...:
                 .add( this.form.getRelatedNodes( 'data-items-path', `[data-name="${updated.relevantPath}"]` ) )
-                .add( this.form.getRelatedNodes( 'data-items-path', `[data-name="${updated.relevantPath}"] ~ datalist > .itemset-template` ) );
+                .add( this.form.getRelatedNodes( 'data-items-path', `[data-name="${updated.relevantPath}"] ~ datalist > .itemset-template` ) )
+                .get();
         } else {
-            $nodes = this.form.getRelatedNodes( 'data-items-path', '.itemset-template', updated );
+            nodes = this.form.getRelatedNodes( 'data-items-path', '.itemset-template', updated )
+                .get();
         }
 
         const clonedRepeatsPresent = this.form.repeatsPresent && this.form.view.html.querySelector( '.or-repeat.clone' );
         const alerts = [];
 
-        $nodes.each( function() {
-            let $input;
-            let $instanceItems;
-            const template = this;
-            const $template = $( this );
+        nodes.forEach( template => {
+            let input;
+            //const $template = $( template );
             const shared = template.parentElement.parentElement.matches( '.or-repeat-info' );
             const inputAttributes = {};
 
             // Nodes are in document order, so we discard any nodes in questions/groups that have a disabled parent
-            if ( $template.parentsUntil( '.or', '.or-branch' ).parentsUntil( '.or', '.disabled' ).length ) {
+            if ( closestAncestorUntil( template, '.disabled', '.or' ) ) {
                 return;
             }
 
             const newItems = {};
-            const prevItems = $template.data();
-            const templateNodeName = $template.prop( 'nodeName' ).toLowerCase();
-            const $list = $template.parent( 'select, datalist' );
+            const prevItems = data.get( template, 'items' ) || {};
+            const templateNodeName = template.nodeName.toLowerCase();
+            const list = template.parentElement.matches( 'select, datalist' ) ? template.parentElement : null;
 
             if ( templateNodeName === 'label' ) {
-                const $optionInput = $template.children( 'input' ).eq( 0 );
+                const $optionInput = $( getChildren( template, 'input' )[ 0 ] );
                 [].slice.call( $optionInput[ 0 ].attributes ).forEach( attr => {
                     inputAttributes[ attr.name ] = attr.value;
                 } );
                 // If this is a ranking widget:
-                $input = $optionInput.hasClass( 'ignore' ) ? $optionInput.closest( '.option-wrapper' ).siblings( 'input.rank' ).eq( 0 ) : $optionInput;
-            } else if ( $list.prop( 'nodeName' ).toLowerCase() === 'select' ) {
-                $input = $list;
-            } else if ( $list.prop( 'nodeName' ).toLowerCase() === 'datalist' ) {
+                input = $optionInput[ 0 ].classList.contains( 'ignore' ) ? getSiblingElements( $optionInput[ 0 ].closest( '.option-wrapper' ), 'input.rank' )[ 0 ] : $optionInput[ 0 ];
+            } else if ( list && list.nodeName.toLowerCase() === 'select' ) {
+                input = list;
+            } else if ( list && list.nodeName.toLowerCase() === 'datalist' ) {
                 if ( shared ) {
-                    $input = $( that.form.view.html.querySelectorAll( `input[name="${$list.attr('data-name')}"]` ) );
+                    // only the first input, is that okay?
+                    input = that.form.view.html.querySelector( `input[name="${list.dataset.name}"]` );
                 } else {
-                    $input = $list.siblings( 'input:not(.widget)' );
+                    input = getSiblingElements( list, 'input:not(.widget)' )[ 0 ];
                 }
             }
 
-            const $labels = $template.closest( 'label, select, datalist' ).siblings( '.itemset-labels' );
-            const itemsXpath = $template.attr( 'data-items-path' );
+            const $labels = $( getSiblingElements( template.closest( 'label, select, datalist' ), '.itemset-labels' ) );
+            const itemsXpath = template.dataset.itemsPath;
             let labelType = $labels.attr( 'data-label-type' );
             let labelRef = $labels.attr( 'data-label-ref' );
             // TODO: if translate() becomes official, move determination of labelType to enketo-xslt
@@ -122,43 +124,33 @@ export default {
              * the nodeset retrieves, Enketo's aproach works well.
              */
             // Shared datalists are under .or-repeat-info. Context is not relevant as these are static lists (without relative nodes).
-            const context = that.form.input.getName( $input[ 0 ] );
+            const context = that.form.input.getName( input );
             /*
              * Determining the index is expensive, so we only do this when the itemset is inside a cloned repeat and not shared.
              * It can be safely set to 0 for other branches.
              */
-            const index = ( !shared && clonedRepeatsPresent && $input.parentsUntil( '.or', '.or-repeat.clone' ).length > 0 ) ? that.form.input.getIndex( $input[ 0 ] ) : 0;
-            //if ( typeof itemsCache[ itemsXpath ] !== 'undefined' ) {
-            //console.log( 'getting items from cache', itemsXpath );
-            // $instanceItems = itemsCache[ itemsXpath ];
-            // } else {
-            //console.log( 'no cache for', itemsXpath );
+            const index = ( !shared && clonedRepeatsPresent && closestAncestorUntil( input, '.or-repeat.clone', '.or' ) ) ? that.form.input.getIndex( input ) : 0;
             const safeToTryNative = true;
             // Caching has no advantage here. This is a very quick query (natively).
-            $instanceItems = $( that.form.model.evaluate( itemsXpath, 'nodes', context, index, safeToTryNative ) );
-            //if ( !insideRepeat ) {
-
-            //itemsCache[ itemsXpath ] = $instanceItems;
-            //}
-            // }
+            const instanceItems = this.form.model.evaluate( itemsXpath, 'nodes', context, index, safeToTryNative );
 
             // This property allows for more efficient 'itemschanged' detection
-            newItems.length = $instanceItems.length;
+            newItems.length = instanceItems.length;
             // TODO: This may cause problems for large itemsets. Use md5 instead?
-            newItems.text = $instanceItems.text();
+            newItems.text = instanceItems.map( item => item.textContent ).join( '' );
 
             if ( newItems.length === prevItems.length && newItems.text === prevItems.text ) {
                 return;
             }
 
-            $template.data( newItems );
+            data.put( template, 'items', newItems );
 
             /**
              * Remove current items before rebuilding a new itemset from scratch.
              */
             // the current <option> and <input> elements
-            const $question = $template.closest( '.question, .or-repeat-info' );
-            $question.find( templateNodeName ).not( $template ).remove();
+            const $question = $( template.closest( '.question, .or-repeat-info' ) );
+            $question.find( templateNodeName ).not( $( template ) ).remove();
             // labels for current <option> elements
             const optionsTranslations = $question.find( '.or-option-translations' ).empty()[ 0 ];
             let optionsFragment = document.createDocumentFragment();
@@ -171,8 +163,7 @@ export default {
                 optionsFragment = fragmentsCache[ cacheKey ].optionsFragment.cloneNode( true );
                 optionsTranslationsFragment = fragmentsCache[ cacheKey ].optionsTranslationsFragment.cloneNode( true );
             } else {
-                $instanceItems.each( function() {
-                    const item = this;
+                instanceItems.forEach( item => {
                     /*
                      * Note: $labelRefs could either be
                      * - a single itext reference
@@ -213,7 +204,7 @@ export default {
                     /**
                      * #510 Show warning if select_multiple value has spaces
                      */
-                    const multiple = ( inputAttributes[ 'data-type-xml' ] == 'select' ) && ( inputAttributes[ 'type' ] == 'checkbox' ) || ( $list[ 0 ] && $list[ 0 ].multiple );
+                    const multiple = ( inputAttributes[ 'data-type-xml' ] == 'select' ) && ( inputAttributes[ 'type' ] == 'checkbox' ) || ( list && list.multiple );
                     if ( multiple && ( value.indexOf( ' ' ) > -1 ) ) {
                         alerts[ alerts.length ] = t( 'alert.valuehasspaces.multiple', { value: value } );
                     }
@@ -259,14 +250,14 @@ export default {
             let currentValue = that.form.model.node( context, index ).getVal();
             if ( currentValue !== '' ) {
 
-                if ( $input.hasClass( 'rank' ) ) {
+                if ( input.classList.contains( 'rank' ) ) {
                     currentValue = '';
                 }
-                that.form.input.setVal( $input[ 0 ], currentValue, events.Change() );
+                that.form.input.setVal( input, currentValue, events.Change() );
             }
 
-            if ( $list.length > 0 || $input.hasClass( 'rank' ) ) {
-                $input.trigger( 'changeoption' );
+            if ( list || input.classList.contains( 'rank' ) ) {
+                input.dispatchEvent( events.ChangeOption() );
             }
 
         } );
