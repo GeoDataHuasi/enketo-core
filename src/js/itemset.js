@@ -4,7 +4,6 @@
  * @module itemset
  */
 
-import $ from 'jquery';
 import { parseFunctionFromExpression } from './utils';
 import dialog from 'enketo/dialog';
 import { closestAncestorUntil, getChildren, getSiblingElements, elementDataStore as data } from './dom-utils';
@@ -69,8 +68,6 @@ export default {
         const alerts = [];
 
         nodes.forEach( template => {
-            let input;
-            //const $template = $( template );
             const shared = template.parentElement.parentElement.matches( '.or-repeat-info' );
             const inputAttributes = {};
 
@@ -84,13 +81,14 @@ export default {
             const templateNodeName = template.nodeName.toLowerCase();
             const list = template.parentElement.matches( 'select, datalist' ) ? template.parentElement : null;
 
+            let input;
             if ( templateNodeName === 'label' ) {
-                const $optionInput = $( getChildren( template, 'input' )[ 0 ] );
-                [].slice.call( $optionInput[ 0 ].attributes ).forEach( attr => {
+                const optionInput = getChildren( template, 'input' )[ 0 ];
+                [].slice.call( optionInput.attributes ).forEach( attr => {
                     inputAttributes[ attr.name ] = attr.value;
                 } );
                 // If this is a ranking widget:
-                input = $optionInput[ 0 ].classList.contains( 'ignore' ) ? getSiblingElements( $optionInput[ 0 ].closest( '.option-wrapper' ), 'input.rank' )[ 0 ] : $optionInput[ 0 ];
+                input = optionInput.classList.contains( 'ignore' ) ? getSiblingElements( optionInput.closest( '.option-wrapper' ), 'input.rank' )[ 0 ] : optionInput;
             } else if ( list && list.nodeName.toLowerCase() === 'select' ) {
                 input = list;
             } else if ( list && list.nodeName.toLowerCase() === 'datalist' ) {
@@ -102,10 +100,10 @@ export default {
                 }
             }
 
-            const $labels = $( getSiblingElements( template.closest( 'label, select, datalist' ), '.itemset-labels' ) );
+            const labelsContainer = getSiblingElements( template.closest( 'label, select, datalist' ), '.itemset-labels' )[ 0 ];
             const itemsXpath = template.dataset.itemsPath;
-            let labelType = $labels.attr( 'data-label-type' );
-            let labelRef = $labels.attr( 'data-label-ref' );
+            let labelType = labelsContainer.dataset.labelType;
+            let labelRef = labelsContainer.dataset.labelRef;
             // TODO: if translate() becomes official, move determination of labelType to enketo-xslt
             // and set labelRef correct in enketo-xslt
             const matches = parseFunctionFromExpression( labelRef, 'translate' );
@@ -114,7 +112,7 @@ export default {
                 labelType = 'langs';
             }
 
-            const valueRef = $labels.attr( 'data-value-ref' );
+            const valueRef = labelsContainer.dataset.valueRef;
 
             /**
              * CommCare/ODK change the context to the *itemset* value (in the secondary instance), hence they need to use the current()
@@ -149,10 +147,13 @@ export default {
              * Remove current items before rebuilding a new itemset from scratch.
              */
             // the current <option> and <input> elements
-            const $question = $( template.closest( '.question, .or-repeat-info' ) );
-            $question.find( templateNodeName ).not( $( template ) ).remove();
+            const question = template.closest( '.question, .or-repeat-info' );
+            [ ...question.querySelectorAll( templateNodeName ) ].filter( el => el !== template ).forEach( el => el.remove() );
             // labels for current <option> elements
-            const optionsTranslations = $question.find( '.or-option-translations' ).empty()[ 0 ];
+            const optionsTranslations = question.querySelector( '.or-option-translations' );
+            if ( optionsTranslations ) {
+                [ ...optionsTranslations.children ].forEach( child => child.remove() );
+            }
             let optionsFragment = document.createDocumentFragment();
             let optionsTranslationsFragment = document.createDocumentFragment();
             let translations = [];
@@ -177,7 +178,7 @@ export default {
                         switch ( labelType ) {
                             case 'itext':
                                 // Search in the special .itemset-labels created in enketo-transformer for labels with itext ref.
-                                translations = $labels.find( `[data-itext-id="${labels[ 0 ].textContent}"]` ).get().map( label => {
+                                translations = [ ...labelsContainer.querySelectorAll( `[data-itext-id="${labels[ 0 ].textContent}"]` ) ].map( label => {
                                     const language = label.getAttribute( 'lang' );
                                     const type = label.nodeName;
                                     const src = label.src;
