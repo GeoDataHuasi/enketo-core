@@ -1,7 +1,7 @@
 import $ from 'jquery';
 import loadForm from '../helpers/load-form';
 import events from '../../src/js/event';
-import { isStaticExternalItemset } from '../../src/js/itemset';
+import { isStaticItemsetFromSecondaryInstance } from '../../src/js/itemset';
 
 describe( 'Itemset functionality', () => {
     let form;
@@ -463,7 +463,7 @@ describe( 'Itemset functionality', () => {
             [ 'instance("countries")/root/item[label=current()/../answer]', false ]
         ].forEach( test => {
             it( `correctly determines that ${test[0]} is ${test[1] === true ? '': 'not '}dynamic`, () => {
-                expect( isStaticExternalItemset( test[ 0 ] ) ).toEqual( test[ 1 ] );
+                expect( isStaticItemsetFromSecondaryInstance( test[ 0 ] ) ).toEqual( test[ 1 ] );
             } );
         } );
 
