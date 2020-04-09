@@ -206,6 +206,8 @@ export default {
         return value || '';
     },
     /**
+     * Finds a form control that is not a nested setvalue/xforms-value-changed directive
+     * 
      * @param {string} name
      * @param {number} index
      * @return {Element} found element
@@ -215,7 +217,8 @@ export default {
         if ( this.form.view.html.querySelector( `input[type="radio"][data-name="${name}"]:not(.ignore)` ) ) {
             attr = 'data-name';
         }
-        const question = this.getWrapNodes( this.form.view.html.querySelectorAll( `[${attr}="${name}"]` ) )[ index ];
+        const selector = `[${attr}="${name}"]:not([data-event="xforms-value-changed"])`;
+        const question = this.getWrapNodes( this.form.view.html.querySelectorAll( selector ) )[ index ];
 
         return question ? question.querySelector( `[${attr}="${name}"]:not(.ignore)` ) : null;
     },

@@ -119,25 +119,25 @@ export default {
             nodes = this.form.getRelatedNodes( 'data-setvalue', `[data-event*="${event.type}"]`, event.detail ).get();
         } else if ( event.type === new events.XFormsValueChanged().type ) {
             const question = event.target.closest( '.question' );
-            const setValueNode = question ? question.querySelector( `[data-setvalue][data-event*="${event.type}"]` ) : null;
-            if ( setValueNode ) {
-                nodes = [ setValueNode ];
-            }
+            nodes = question ? [ ...question.querySelectorAll( `[data-setvalue][data-event*="${event.type}"]` ) ] : nodes;
         }
 
-        nodes.forEach( control => {
-            const name = this.form.input.getName( control );
+        nodes.forEach( setvalueControl => {
+            console.log( 'setvalue control', setvalueControl );
+            const name = this.form.input.getName( setvalueControl );
+            console.log( 'name', name );
             const dataNodesObj = this.form.model.node( name );
             const dataNodes = dataNodesObj.getElements();
 
             const props = {
                 name,
-                expr: control.dataset.setvalue,
-                dataType: this.form.input.getXmlType( control ),
-                relevantExpr: this.form.input.getRelevant( control ),
+                expr: setvalueControl.dataset.setvalue,
+                dataType: this.form.input.getXmlType( setvalueControl ),
+                relevantExpr: this.form.input.getRelevant( setvalueControl ),
                 index: event.detail && typeof event.detail.repeatIndex !== 'undefined' ? event.detail.repeatIndex : 0,
                 dataNodesObj
             };
+            console.log( 'props', props );
 
             if ( dataNodes.length > 1 && event.type !== new events.NewRepeat().type && event.type !== new events.XFormsValueChanged().type ) {
                 /*
@@ -148,11 +148,18 @@ export default {
                  */
                 dataNodes.forEach( ( el, index ) => {
                     const obj = Object.create( props );
+                    const control = setvalueControl;
                     obj.index = index;
                     this._updateCalc( control, obj, ignoreRelevance );
                 } );
 
+            } else if ( event.type === new events.XFormsValueChanged().type ) {
+                // control for xforms-value-changed is located elsewhere, or does not exist.
+                const control = this.form.input.find( props.name, props.index );
+                console.log( 'corresponding control found', control );
+                this._updateCalc( control, props, ignoreRelevance );
             } else if ( dataNodes[ index ] ) {
+                const control = setvalueControl;
                 this._updateCalc( control, props, ignoreRelevance );
             } else {
                 console.error( 'SetValue called for node that does not exist in model.' );
@@ -169,10 +176,11 @@ export default {
 
         // Not sure if using 'string' is always correct
         const newExpr = this.form.replaceChoiceNameFn( props.expr, 'string', props.name, props.index );
+        console.log( 'newExpr', newExpr );
 
         // It is possible that the fixed expr is '' which causes an error in XPath
-        const xpathType = this.form.input.getInputType( control ) === 'number' ? 'number' : 'string';
-        const result = relevant && newExpr ? this.form.model.evaluate( newExpr, xpathType, props.name, props.index ) : '';
+        // const xpathType = this.form.input.getInputType( control ) === 'number' ? 'number' : 'string';
+        const result = relevant && newExpr ? this.form.model.evaluate( newExpr, 'string', props.name, props.index ) : '';
 
         // Filter the result set to only include the target node
         props.dataNodesObj.setIndex( props.index );
@@ -183,14 +191,19 @@ export default {
         // Not the most efficient to use input.setVal here as it will do another lookup
         // of the node, that we already have...
         // We should not use value "result" here because node.setVal() may have done a data type conversion
-        this.form.input.setVal( control, props.dataNodesObj.getVal() );
+        if ( control ) {
+            this.form.input.setVal( control, props.dataNodesObj.getVal() );
 
-        /*
-         * We need to specifically call validate on the question itself, because the validationUpdate
-         * in the evaluation cascade only updates questions with a _dependency_ on this question.
-         */
-        if ( control.type !== 'hidden' && config.validateContinuously === true ) {
-            this.form.validateInput( control );
+            /*
+             * We need to specifically call validate on the question itself, because the validationUpdate
+             * in the evaluation cascade only updates questions with a _dependency_ on this question.
+             */
+            if ( control.type !== 'hidden' && config.validateContinuously === true ) {
+                this.form.validateInput( control );
+            }
+        } else {
+            // This is okay for a setvalue/xforms-value-changed directive (may be no form control)
+            console.log( 'no form control found' );
         }
     },
 
